@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Camera Upload</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{
+    margin:0;
+    font-family:tahoma;
+    background:#111;
+    color:white;
+    text-align:center;
+}
+
+.container{
+    padding:20px;
+}
+
+video{
+    width:95%;
+    max-width:500px;
+    border-radius:20px;
+    background:black;
+}
+
+button{
+    width:90%;
+    max-width:400px;
+    padding:15px;
+    margin:10px;
+    border:0;
+    border-radius:15px;
+    font-size:18px;
+    cursor:pointer;
+}
+
+.photo{
+    background:#00c853;
+    color:white;
+}
+
+.record{
+    background:#d50000;
+    color:white;
+}
+
+.upload{
+    background:#2962ff;
+    color:white;
+}
+
+#status{
+    margin-top:20px;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>ارسال عکس و ویدیو</h2>
+
+<video id="camera" autoplay playsinline></video>
+
+<br>
+
+<button class="photo" onclick="takePhoto()">
+📷 گرفتن عکس
+</button>
+
+<button class="record" onclick="toggleRecord()">
+🎥 شروع ضبط ویدیو
+</button>
+
+<button class="upload" onclick="uploadFile()">
+⬆️ ارسال فایل
+</button>
+
+<p id="status"></p>
+
+<canvas id="canvas" style="display:none"></canvas>
+
+</div>
+
+
+<script>
+
+const SUPABASE_URL =
+"https://tfpoybiwsritiwsplyyu.supabase.co";
+
+const SUPABASE_KEY =
+"sb_publishable_UCb1udtIPB-2t4yOkazUYg_KjdPxZih";
+
+
+const supabaseClient = supabase.createClient(
+SUPABASE_URL,
+SUPABASE_KEY
+);
+
+
+let stream;
+let mediaRecorder;
+let chunks=[];
+let fileToUpload=null;
+
+
+// فعال کردن دوربین
+
+async function startCamera(){
+
+stream = await navigator.mediaDevices.getUserMedia({
+video:true,
+audio:true
+});
+
+document.getElementById("camera").srcObject=stream;
+
+}
+
+startCamera();
+
+
+
+// گرفتن عکس
+
+function takePhoto(){
+
+let video=document.getElementById("camera");
+let canvas=document.getElementById("canvas");
+
+canvas.width=video.videoWidth;
+canvas.height=video.videoHeight;
+
+canvas.getContext("2d")
+.drawImage(video,0,0);
+
+
+canvas.toBlob(blob=>{
+
+fileToUpload =
+new File(
+[blob],
+"photo-"+Date.now()+".jpg",
+{type:"image/jpeg"}
+);
+
+statusText("عکس آماده ارسال شد");
+
+});
+
+}
+
+
+
+// ضبط ویدیو
+
+function toggleRecord(){
+
+if(!mediaRecorder){
+
+chunks=[];
+
+mediaRecorder =
+new MediaRecorder(stream);
+
+
+mediaRecorder.ondataavailable=e=>{
+chunks.push(e.data);
+};
+
+
+mediaRecorder.onstop=()=>{
+
+let blob =
+new Blob(chunks,{type:"video/webm"});
+
+
+fileToUpload =
+new File(
+[blob],
+"video-"+Date.now()+".webm",
+{type:"video/webm"}
+);
+
+
+statusText("ویدیو آماده ارسال شد");
+
+};
+
+
+mediaRecorder.start();
+
+statusText("ضبط شروع شد...");
+
+}else{
+
+
+mediaRecorder.stop();
+
+mediaRecorder=null;
+
+}
+
+}
+
+
+
+// آپلود
+
+async function uploadFile(){
+
+if(!fileToUpload){
+
+statusText("اول عکس یا ویدیو بگیر");
+
+return;
+
+}
+
+
+statusText("در حال ارسال...");
+
+
+const path =
+Date.now()+"-"+fileToUpload.name;
+
+
+const {data,error}=await supabaseClient
+.storage
+.from("uploads")
+.upload(
+path,
+fileToUpload
+);
+
+
+if(error){
+
+statusText(
+"خطا: "+error.message
+);
+
+return;
+
+}
+
+
+statusText(
+"✅ با موفقیت ارسال شد"
+);
+
+
+fileToUpload=null;
+
+}
+
+
+
+function statusText(text){
+
+document.getElementById("status")
+.innerHTML=text;
+
+}
+
+
+</script>
+
+</body>
+</html>
